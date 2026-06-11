@@ -2,6 +2,8 @@
 
 A Flask-based web application developed by Ankan Hazra & Soumyadeep Biswas that predicts heart disease risk using a machine learning classification model trained on the UCI Heart Disease (Kaggle) dataset.
 
+Contact : ankanhazraff@gmail.com
+
 ---
 
 ## Project Structure
