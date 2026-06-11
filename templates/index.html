@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Heart Disease Risk Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ── CSS Reset & Variables ───────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f4f6f8;
+      --surface:   #ffffff;
+      --border:    #dde2e8;
+      --text:      #1a2332;
+      --muted:     #6b7a90;
+      --accent:    #1a6ef5;
+      --accent-dk: #0f4db8;
+      --low:       #22c55e;
+      --moderate:  #eab308;
+      --high:      #f97316;
+      --critical:  #ef4444;
+      --radius:    8px;
+      --shadow:    0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Top Bar ─────────────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .topbar-brand svg { color: var(--critical); }
+
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .topbar-user strong { color: var(--text); }
+
+    .btn-sm {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: transparent;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text);
+      transition: background .15s;
+    }
+
+    .btn-sm:hover { background: var(--bg); }
+
+    /* ── Layout ──────────────────────────────────────────────────── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 16px 80px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .page-header h1 {
+      font-size: 26px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .page-header p { color: var(--muted); font-size: 14px; }
+
+    /* ── Card ────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Form Grid ───────────────────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 16px;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .form-group input,
+    .form-group select {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,110,245,.12);
+      background: #fff;
+    }
+
+    .form-group .hint {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Submit Button ───────────────────────────────────────────── */
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .15s;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .btn-primary:hover { background: var(--accent-dk); }
+    .btn-primary:disabled { background: var(--muted); cursor: not-allowed; }
+
+    /* ── Notice Banner ───────────────────────────────────────────── */
+    .notice {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-top: 14px;
+    }
+
+    /* ── Result Section ──────────────────────────────────────────── */
+    #result-section { display: none; }
+
+    /* Risk Badge */
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .risk-badge.low      { background:#dcfce7; color:#15803d; }
+    .risk-badge.moderate { background:#fef9c3; color:#854d0e; }
+    .risk-badge.high     { background:#ffedd5; color:#c2410c; }
+    .risk-badge.critical { background:#fee2e2; color:#b91c1c; }
+
+    /* Pie Chart */
+    .chart-wrap {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    #riskChart { max-width: 200px; max-height: 200px; }
+
+    .chart-legend { display: flex; flex-direction: column; gap: 10px; }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Critical Factors */
+    .factor-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+    .factor-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 14px;
+      padding: 8px 12px;
+      background: #fff8f0;
+      border-left: 3px solid var(--high);
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    .factor-list li.ok {
+      background: #f0fdf4;
+      border-left-color: var(--low);
+    }
+
+    /* ── Login Section ───────────────────────────────────────────── */
+    .login-section {
+      margin-top: 40px;
+      border-top: 1px solid var(--border);
+      padding-top: 32px;
+    }
+
+    .login-section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .login-section p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+    .login-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      max-width: 420px;
+    }
+
+    .login-form-grid .full { grid-column: 1 / -1; }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    /* ── Past Records ────────────────────────────────────────────── */
+    #records-section { display: none; }
+
+    .records-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .records-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--bg);
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .records-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .records-table tr:last-child td { border-bottom: none; }
+
+    /* ── Alert ───────────────────────────────────────────────────── */
+    .alert {
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .alert.error   { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+    .alert.success { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.5);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .login-form-grid { grid-template-columns: 1fr; }
+      .topbar { padding: 0 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Top Navigation Bar ────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <!-- Heart icon SVG -->
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
+               2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09
+               C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
+               c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+    </svg>
+    Heart Disease Risk Detector
+  </div>
+
+  <!-- Show user info if logged in, else nothing in topbar -->
+  <div class="topbar-user">
+    {% if user %}
+      Welcome, <strong>{{ user.name }}</strong>
+      <a href="/logout"><button class="btn-sm">Logout</button></a>
+    {% endif %}
+  </div>
+</header>
+
+<!-- ── Main Content ───────────────────────────────────────────────────────── -->
+<main class="container">
+
+  <div class="page-header">
+    <h1>Heart Disease Risk Assessment</h1>
+    <p>Fill in your health parameters below. Leave unknown fields blank — we'll use average values.</p>
+  </div>
+
+  <!-- ── Input Form Card ──────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Patient Health Parameters</div>
+
+    <div class="form-grid">
+
+      <!-- Age -->
+      <div class="form-group">
+        <label>Age (years)</label>
+        <input type="number" id="age" placeholder="e.g. 52" min="1" max="120"/>
+      </div>
+
+      <!-- Sex -->
+      <div class="form-group">
+        <label>Sex</label>
+        <select id="sex">
+          <option value="">— Select —</option>
+          <option value="1">Male</option>
+          <option value="0">Female</option>
+        </select>
+      </div>
+
+      <!-- Chest Pain Type -->
+      <div class="form-group">
+        <label>Chest Pain Type (cp)</label>
+        <select id="cp">
+          <option value="">— Select —</option>
+          <option value="0">Typical Angina</option>
+          <option value="1">Atypical Angina</option>
+          <option value="2">Non-Anginal Pain</option>
+          <option value="3">Asymptomatic</option>
+        </select>
+        <span class="hint">Type of chest pain experienced</span>
+      </div>
+
+      <!-- Resting Blood Pressure -->
+      <div class="form-group">
+        <label>Resting Blood Pressure</label>
+        <input type="number" id="trestbps" placeholder="mmHg, e.g. 120" min="50" max="250"/>
+        <span class="hint">Normal: 90–120 mmHg</span>
+      </div>
+
+      <!-- Cholesterol -->
+      <div class="form-group">
+        <label>Serum Cholesterol</label>
+        <input type="number" id="chol" placeholder="mg/dl, e.g. 200" min="50" max="600"/>
+        <span class="hint">Normal: &lt;200 mg/dl</span>
+      </div>
+
+      <!-- Fasting Blood Sugar -->
+      <div class="form-group">
+        <label>Fasting Blood Sugar &gt; 120 mg/dl?</label>
+        <select id="fbs">
+          <option value="">— Select —</option>
+          <option value="0">No (≤120)</option>
+          <option value="1">Yes (&gt;120)</option>
+        </select>
+      </div>
+
+      <!-- Resting ECG -->
+      <div class="form-group">
+        <label>Resting ECG Results</label>
+        <select id="restecg">
+          <option value="">— Select —</option>
+          <option value="0">Normal</option>
+          <option value="1">ST-T Wave Abnormality</option>
+          <option value="2">Left Ventricular Hypertrophy</option>
+        </select>
+      </div>
+
+      <!-- Max Heart Rate -->
+      <div class="form-group">
+        <label>Max Heart Rate (thalach)</label>
+        <input type="number" id="thalach" placeholder="bpm, e.g. 150" min="50" max="250"/>
+        <span class="hint">Max heart rate during exercise</span>
+      </div>
+
+      <!-- Exercise Induced Angina -->
+      <div class="form-group">
+        <label>Exercise-Induced Angina?</label>
+        <select id="exang">
+          <option value="">— Select —</option>
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+      </div>
+
+      <!-- Oldpeak -->
+      <div class="form-group">
+        <label>ST Depression (oldpeak)</label>
+        <input type="number" id="oldpeak" placeholder="e.g. 1.0" step="0.1" min="0" max="10"/>
+        <span class="hint">ST depression during exercise</span>
+      </div>
+
+      <!-- Slope -->
+      <div class="form-group">
+        <label>Slope of ST Segment</label>
+        <select id="slope">
+          <option value="">— Select —</option>
+          <option value="0">Upsloping</option>
+          <option value="1">Flat</option>
+          <option value="2">Downsloping</option>
+        </select>
+      </div>
+
+      <!-- CA -->
+      <div class="form-group">
+        <label>Major Vessels (ca)</label>
+        <select id="ca">
+          <option value="">— Select —</option>
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+        <span class="hint">Coloured by fluoroscopy</span>
+      </div>
+
+      <!-- Thal -->
+      <div class="form-group">
+        <label>Thalassemia (thal)</label>
+        <select id="thal">
+          <option value="">— Select —</option>
+          <option value="0">Normal</option>
+          <option value="1">Fixed Defect</option>
+          <option value="2">Reversible Defect</option>
+        </select>
+      </div>
+
+    </div><!-- /form-grid -->
+
+    <button class="btn-primary" id="predict-btn" onclick="runPrediction()">
+      Analyze Risk
+    </button>
+
+    <!-- Notice shown when average values are assumed -->
+    <div class="notice" id="assumed-notice" style="display:none"></div>
+
+  </div><!-- /card -->
+
+  <!-- ── Result Section (hidden until prediction) ─────────────────────────── -->
+  <div id="result-section">
+
+    <!-- Risk Badge -->
+    <div class="card">
+      <div class="card-title">Risk Assessment Result</div>
+
+      <div id="risk-badge" class="risk-badge">
+        <span id="risk-icon"></span>
+        <span id="risk-text"></span>
+      </div>
+
+      <!-- Pie Chart + Legend -->
+      <div class="chart-wrap">
+        <canvas id="riskChart"></canvas>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#ef4444"></div>
+            <span>Heart Disease Probability: <strong id="prob-yes-text"></strong></span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#22c55e"></div>
+            <span>No Disease Probability: <strong id="prob-no-text"></strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Critical Factors -->
+    <div class="card">
+      <div class="card-title">Key Health Factors Identified</div>
+      <ul class="factor-list" id="factors-list"></ul>
+    </div>
+
+    <!-- If user is NOT logged in, show signup notice -->
+    {% if not user %}
+    <div class="notice">
+      📋 Want to track your results over time? Create an account — your past records will be saved automatically with every assessment.
+    </div>
+    {% endif %}
+
+    <!-- If user IS logged in, show past records -->
+    {% if user %}
+    <div id="records-section" class="card">
+      <div class="card-title">Your Past Records</div>
+      <table class="records-table">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Risk Level</th>
+            <th>Disease Probability</th>
+          </tr>
+        </thead>
+        <tbody id="records-tbody"></tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div><!-- /result-section -->
+
+  <!-- ── Login Section ──────────────────────────────────────────────────────── -->
+  {% if not user %}
+  <div class="login-section card">
+    <h2>Already have an account?</h2>
+    <p>Log in to save your assessments and view past records.</p>
+
+    <div class="login-form-grid">
+      <div class="form-group full">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="Your username"/>
+      </div>
+      <div class="form-group full">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Your password"/>
+      </div>
+      <div class="full" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <button class="btn-primary" style="width:auto;" onclick="doLogin()">Login</button>
+        <button class="link-btn" onclick="window.location='/signup'">Don't have an account? Sign up</button>
+      </div>
+    </div>
+
+    <div class="alert error"   id="login-error"></div>
+    <div class="alert success" id="login-success"></div>
+  </div>
+  {% endif %}
+
+</main><!-- /container -->
+
+<script>
+// ── Pie Chart Instance (kept in outer scope to allow re-rendering) ──────────
+let chartInstance = null;
+
+// ── Run Prediction ──────────────────────────────────────────────────────────
+async function runPrediction() {
+  const btn = document.getElementById("predict-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+  // Collect all field values
+  const fields = ["age","sex","cp","trestbps","chol","fbs",
+                  "restecg","thalach","exang","oldpeak","slope","ca","thal"];
+  const payload = {};
+  fields.forEach(f => {
+    const el = document.getElementById(f);
+    payload[f] = el ? el.value.trim() : "";
+  });
+
+  try {
+    const res  = await fetch("/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      alert("Error: " + data.error);
+      return;
+    }
+
+    renderResult(data);
+
+    // If user is logged in, also load past records
+    {% if user %}
+    loadRecords();
+    {% endif %}
+
+  } catch (err) {
+    alert("Something went wrong. Please try again.");
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "Analyze Risk";
+  }
+}
+
+// ── Render Prediction Results ──────────────────────────────────────────────
+function renderResult(data) {
+  // Show the result section
+  document.getElementById("result-section").style.display = "block";
+  document.getElementById("result-section").scrollIntoView({ behavior: "smooth" });
+
+  // Risk badge
+  const badge = document.getElementById("risk-badge");
+  badge.className = "risk-badge " + data.risk_class;
+
+  const icons = { low: "🟢", moderate: "🟡", high: "🟠", critical: "🔴" };
+  document.getElementById("risk-icon").textContent = icons[data.risk_class] || "⚪";
+  document.getElementById("risk-text").textContent  = data.risk_label;
+
+  // Probabilities
+  document.getElementById("prob-yes-text").textContent = data.prob_yes + "%";
+  document.getElementById("prob-no-text").textContent  = data.prob_no  + "%";
+
+  // Pie chart
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById("riskChart").getContext("2d");
+  chartInstance = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Heart Disease", "No Disease"],
+      datasets: [{
+        data: [data.prob_yes, data.prob_no],
+        backgroundColor: ["#ef4444", "#22c55e"],
+        borderWidth: 2,
+        borderColor: "#fff"
+      }]
+    },
+    options: {
+      cutout: "65%",
+      plugins: { legend: { display: false } },
+      animation: { animateRotate: true, duration: 800 }
+    }
+  });
+
+  // Critical factors
+  const list = document.getElementById("factors-list");
+  list.innerHTML = "";
+  data.critical_factors.forEach(f => {
+    const li = document.createElement("li");
+    const isOk = f.startsWith("No specific");
+    li.className = isOk ? "ok" : "";
+    li.textContent = isOk ? "✓ " + f : "⚠ " + f;
+    list.appendChild(li);
+  });
+
+  // Assumed fields notice
+  const notice = document.getElementById("assumed-notice");
+  if (data.assumed_fields.length > 0) {
+    notice.style.display = "block";
+    notice.textContent = "ℹ Average values were assumed for: " +
+      data.assumed_fields.join(", ") + ".";
+  } else {
+    notice.style.display = "none";
+  }
+}
+
+// ── Load Past Records (logged-in users only) ────────────────────────────────
+async function loadRecords() {
+  const res  = await fetch("/records");
+  const rows = await res.json();
+
+  document.getElementById("records-section").style.display = "block";
+  const tbody = document.getElementById("records-tbody");
+  tbody.innerHTML = "";
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted); padding:16px;">No past records yet.</td></tr>';
+    return;
+  }
+
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.timestamp}</td>
+      <td>${r.risk_label}</td>
+      <td>${parseFloat(r.prob_yes * 100).toFixed(1)}%</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Login Handler ───────────────────────────────────────────────────────────
+async function doLogin() {
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl    = document.getElementById("login-error");
+  const sucEl    = document.getElementById("login-success");
+  errEl.style.display = "none";
+  sucEl.style.display = "none";
+
+  if (!username || !password) {
+    errEl.textContent = "Please enter both username and password.";
+    errEl.style.display = "block";
+    return;
+  }
+
+  try {
+    const res  = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      sucEl.textContent = "Login successful! Reloading...";
+      sucEl.style.display = "block";
+      setTimeout(() => location.reload(), 800);
+    } else {
+      errEl.textContent = data.message || "Login failed.";
+      errEl.style.display = "block";
+    }
+  } catch {
+    errEl.textContent = "Connection error. Please try again.";
+    errEl.style.display = "block";
+  }
+}
+</script>
+
+</body>
+</html>
